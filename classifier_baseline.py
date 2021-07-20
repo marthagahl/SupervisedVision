@@ -15,7 +15,7 @@ import torchvision.transforms.functional as TF
 import pathlib
 from PIL import Image
 
-from dataset_baseline import Collater, CelebADataset
+from dataset import Collater, CelebADataset
 
 
 dataset_name = 'celeba'
