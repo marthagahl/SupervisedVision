@@ -15,14 +15,15 @@ import torchvision.transforms.functional as TF
 import pathlib
 from PIL import Image
 
-from dataset import Collater, CelebADataset
+from dataset_baseline import Collater, CelebADataset
 
 
 dataset_name = 'celeba'
 experiment_type = 'baseline'
 num_classes = 2
-#rotations = [0]
-
+upright_rotations = [0, 15, 345]
+inverted_rotations = [180]
+num_crops = 10
 
 def train(args, model, device, train_loader, optimizer, epoch):
     model.train()
@@ -49,7 +50,7 @@ def train(args, model, device, train_loader, optimizer, epoch):
     return average_loss
 
 
-def test(args, model, device, test_loader):
+def test(args, model, device, test_loader, num_crops, num_rotations):
     model.eval()
     test_loss = 0
     correct = 0
@@ -86,18 +87,18 @@ def test(args, model, device, test_loader):
     test_loss /= len(test_loader)
     print ('correct:', correct)
     
-    return test_loss, correct * 1.0 / (len(test_loader.dataset)*1) 
+    return test_loss, correct * 1.0 / (len(test_loader.dataset)*num_crops*num_rotations) 
 
 
 
 
 def main():
     parser = argparse.ArgumentParser(description = 'PyTorch Example')
-    parser.add_argument('--batch-size', type = int, default = 128, metavar = 'N',
+    parser.add_argument('--batch-size', type = int, default = 32, metavar = 'N',
             help = 'input batch size for training (default: 64)')
-    parser.add_argument('--test-batch-size', type = int, default = 128, metavar = 'N',
+    parser.add_argument('--test-batch-size', type = int, default = 32, metavar = 'N',
             help = 'input batch size for testing (default: 1000)')
-    parser.add_argument('--epochs', type = int, default = 70, metavar = 'N',
+    parser.add_argument('--epochs', type = int, default = 100, metavar = 'N',
             help = 'number of epochs to train (default: 10)')
     parser.add_argument('--initial_lr', type = float, default = 0.0001, metavar = 'LR',
             help = 'learning rate (default: 0.01)')
@@ -107,9 +108,9 @@ def main():
             help = 'disables CUDA training')
     parser.add_argument('--seed', type = int, default = 1, metavar = 'S',
             help = 'random seed (default: 1)')
-    parser.add_argument('--log-interval', type = int, default = 50, metavar = 'N',
+    parser.add_argument('--log-interval', type = int, default = 5, metavar = 'N',
             help = 'how many batches to wait before logging training status')
-    parser.add_argument('--log_polar', type = bool, default = True, metavar = 'LP',
+    parser.add_argument('--log_polar', type = bool, default = False, metavar = 'LP',
             help = 'include log polar transformation in training')
     parser.add_argument('--salience', type = bool, default = False, metavar = 'SAL',
             help = 'use salience sampling to add augmentation')
@@ -147,47 +148,47 @@ def main():
             train_dataset, 
             batch_size = args.batch_size, 
             shuffle = True, 
-            collate_fn = Collater(args.log_polar, 150, [0]), 
+            collate_fn = Collater(args.log_polar, 150, upright_rotations), 
             **kwargs)
     val_loader_1 = torch.utils.data.DataLoader(
             val_dataset_1, 
             batch_size = args.test_batch_size, 
             shuffle = True, 
-            collate_fn = Collater(args.log_polar, 150, [0]), 
+            collate_fn = Collater(args.log_polar, 150, upright_rotations), 
             **kwargs)
     val_loader_2 = torch.utils.data.DataLoader(
             val_dataset_2, 
             batch_size = args.test_batch_size, 
             shuffle = True, 
-            collate_fn = Collater(args.log_polar, 150, [180]), 
+            collate_fn = Collater(args.log_polar, 150, inverted_rotations), 
             **kwargs)
     test_loader_1 = torch.utils.data.DataLoader(
             test_dataset_1, 
             batch_size = args.test_batch_size, 
             shuffle = True, 
-            collate_fn = Collater(args.log_polar, 150, [0]), 
+            collate_fn = Collater(args.log_polar, 150, upright_rotations), 
             **kwargs)
     test_loader_2 = torch.utils.data.DataLoader(
             test_dataset_2, 
             batch_size = args.test_batch_size, 
             shuffle = True, 
-            collate_fn = Collater(args.log_polar, 150, [180]), 
+            collate_fn = Collater(args.log_polar, 150, inverted_rotations), 
             **kwargs)
 
 
     class Flatten(nn.Module):
         def forward(self,input):
-            print (input.shape)
+#            print (input.shape)
             return input.view(input.size(0), -1)
 
 
     model = nn.Sequential(
-            nn.Conv2d(3, 64, kernel_size = 7, stride = 2, padding = 3, bias = False ),
-            nn.BatchNorm2d(64),
+            nn.Conv2d(3, 32, kernel_size = 7, stride = 2, padding = 3, bias = False ),
+#            nn.BatchNorm2d(64),
             nn.ReLU(),
             nn.MaxPool2d(kernel_size = 3, stride = 2, padding = 1),
-            nn.Conv2d(64, 128, kernel_size = 3, stride = 1, bias = False),
-            nn.BatchNorm2d(128),
+            nn.Conv2d(32, 32, kernel_size = 3, stride = 1, bias = False),
+#            nn.BatchNorm2d(128),
             nn.ReLU(),
             nn.MaxPool2d(kernel_size = 3, stride = 2, padding = 1),
 #            nn.Conv2d(40, 60, kernel_size = 3, stride = 1, bias = False),
@@ -199,9 +200,11 @@ def main():
 #            nn.ReLU(),
 #            nn.MaxPool2d(kernel_size = 2, stride = 2),
             Flatten(),
+#            nn.Linear(51840, 40),
+            nn.Linear(10368, 40),
             nn.Dropout(0.2),
 #            nn.Linear(41472, num_classes),
-            nn.Linear(76032, num_classes),
+            nn.Linear(40, num_classes),
             )
 
 
@@ -227,11 +230,11 @@ def main():
         train(args, model, device, train_loader, optimizer, epoch)
         
         print("\nEvaluating on training set...")
-        train_loss, train_acc = test(args, model, device, train_loader)
+        train_loss, train_acc = test(args, model, device, train_loader, num_crops, len(upright_rotations))
         print("\nEvaluating on upright validation set...")
-        val_upright_loss, val_upright_acc = test(args, model, device, val_loader_1)
+        val_upright_loss, val_upright_acc = test(args, model, device, val_loader_1, num_crops, len(upright_rotations))
         print("\nEvaluating on inverted validation set...")
-        val_inverted_loss, val_inverted_acc = test(args, model, device, val_loader_2)
+        val_inverted_loss, val_inverted_acc = test(args, model, device, val_loader_2, num_crops, len(inverted_rotations))
 
 
         print(f'\nEpoch {epoch} Training Set Loss: {train_loss}')
@@ -289,9 +292,9 @@ def main():
 
 
     print("\nEvaluating on upright test set...")
-    test_upright_loss, test_upright_acc = test(args, model, device, test_loader_1)
+    test_upright_loss, test_upright_acc = test(args, model, device, test_loader_1, num_crops, len(upright_rotations))
     print("\nEvaluating on inverted test set...")
-    test_inverted_loss, test_inverted_acc = test(args, model, device, test_loader_2)
+    test_inverted_loss, test_inverted_acc = test(args, model, device, test_loader_2, num_crops, len(inverted_rotations))
 
     print(f'\nUpright Test Set Loss: {test_upright_loss}')
     print(f'Upright Test Set Accuracy: {test_upright_acc}')
