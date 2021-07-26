@@ -11,6 +11,7 @@ from torchvision import datasets, transforms
 from utils import verify_str_arg
 from typing import Any, Callable, List, Optional, Union, Tuple
 from skimage.transform import rotate, rescale
+import random
 
 from retina_transform import foveat_img
 from oct2py import octave
@@ -189,7 +190,9 @@ class Collater:
         out_x = []
         out_y = []
         for i in range(len(x)):
-            crops = transforms.functional.ten_crop(x[i], self.crop_size)
+            crops = self.randomcrop(x[i], 10)
+#            crops = transforms.functional.ten_crop(x[i], self.crop_size)
+#            crops = [x[i]]
             for j in range(len(crops)):
                 for k in range(len(self.rotations)):
                     img = crops[j].rotate(int(self.rotations[k]))
@@ -205,10 +208,23 @@ class Collater:
                     img = torch.from_numpy(img)
                     img = norm(img)
                     out_x.append(img)
-                    out_y.append(y[i])
+                    out_y.append(torch.tensor(y[i]))
 
         return torch.stack(out_x), torch.stack(out_y)
 
+    def randomcrop(self, image1, num_crops):
+        width, height = image1.size
+
+        crops = []
+
+        for _ in range(num_crops):
+            i = random.randint(0, height - self.crop_size)
+            j = random.randint(0, width - self.crop_size)
+
+            cropped_im = transforms.functional.crop(image1, i, j, self.crop_size, self.crop_size)
+            crops.append(cropped_im)
+
+        return crops
 
     def logpolar(self, image1, center):
         log_list = octave.logsample(image1, 5.0, center[0], center[0], center[1], self.out_width, self.out_height)

@@ -11,6 +11,7 @@ from torchvision import datasets, transforms
 import glob
 import json
 import torchvision.transforms.functional as TF
+from skimage.transform import rotate
 
 import pathlib
 from PIL import Image
@@ -21,7 +22,7 @@ from dataset_baseline import Collater, CelebADataset
 dataset_name = 'celeba'
 experiment_type = 'baseline'
 num_classes = 2
-upright_rotations = [0, 15, 345]
+upright_rotations = [0]
 inverted_rotations = [180]
 num_crops = 10
 
@@ -94,9 +95,9 @@ def test(args, model, device, test_loader, num_crops, num_rotations):
 
 def main():
     parser = argparse.ArgumentParser(description = 'PyTorch Example')
-    parser.add_argument('--batch-size', type = int, default = 32, metavar = 'N',
+    parser.add_argument('--batch-size', type = int, default = 4, metavar = 'N',
             help = 'input batch size for training (default: 64)')
-    parser.add_argument('--test-batch-size', type = int, default = 32, metavar = 'N',
+    parser.add_argument('--test-batch-size', type = int, default = 4, metavar = 'N',
             help = 'input batch size for testing (default: 1000)')
     parser.add_argument('--epochs', type = int, default = 100, metavar = 'N',
             help = 'number of epochs to train (default: 10)')
@@ -137,12 +138,11 @@ def main():
     test_dataset_1 = CelebADataset('/datasets01/CelebA/CelebA/072017/img_align_celeba', 'test', 'identity', ['>30'])
     test_dataset_2 = CelebADataset('/datasets01/CelebA/CelebA/072017/img_align_celeba', 'test', 'identity', ['>30'])
 
-    print (len(train_dataset))
-    print (len(val_dataset_1))
-    print (len(val_dataset_2))
-    print (len(test_dataset_1))
-    print (len(test_dataset_2))
-
+#    train_dataset = datasets.ImageFolder("/checkpoint/mgahl/shape_dataset/train/")
+#    val_dataset_1 = datasets.ImageFolder("/checkpoint/mgahl/shape_dataset/valid/")
+#    val_dataset_2 = datasets.ImageFolder("/checkpoint/mgahl/shape_dataset/valid/")
+#    test_dataset_1 = datasets.ImageFolder("/checkpoint/mgahl/shape_dataset/test/")
+#    test_dataset_2 = datasets.ImageFolder("/checkpoint/mgahl/shape_dataset/test/")
 
     train_loader = torch.utils.data.DataLoader(
             train_dataset, 
@@ -176,6 +176,7 @@ def main():
             **kwargs)
 
 
+
     class Flatten(nn.Module):
         def forward(self,input):
 #            print (input.shape)
@@ -184,26 +185,16 @@ def main():
 
     model = nn.Sequential(
             nn.Conv2d(3, 32, kernel_size = 7, stride = 2, padding = 3, bias = False ),
-#            nn.BatchNorm2d(64),
             nn.ReLU(),
             nn.MaxPool2d(kernel_size = 3, stride = 2, padding = 1),
-            nn.Conv2d(32, 32, kernel_size = 3, stride = 1, bias = False),
-#            nn.BatchNorm2d(128),
-            nn.ReLU(),
-            nn.MaxPool2d(kernel_size = 3, stride = 2, padding = 1),
-#            nn.Conv2d(40, 60, kernel_size = 3, stride = 1, bias = False),
-#            nn.BatchNorm2d(60),
+#            nn.Conv2d(32, 32, kernel_size = 3, stride = 1, bias = False),
 #            nn.ReLU(),
-#            nn.MaxPool2d(kernel_size = 2, stride = 2),
-#            nn.Conv2d(60, 80, kernel_size = 2, stride = 1, bias = False),
-#            nn.BatchNorm2d(80),
-#            nn.ReLU(),
-#            nn.MaxPool2d(kernel_size = 2, stride = 2),
+#            nn.MaxPool2d(kernel_size = 3, stride = 2, padding = 1),
             Flatten(),
-#            nn.Linear(51840, 40),
-            nn.Linear(10368, 40),
+            nn.Linear(46208, 40),
+#            nn.Linear(10368, 40),
+            nn.ReLU(),
             nn.Dropout(0.2),
-#            nn.Linear(41472, num_classes),
             nn.Linear(40, num_classes),
             )
 
