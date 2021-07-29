@@ -6,18 +6,18 @@ import torch.nn as nn
 import numpy as np
 import torch
 import PIL
+from PIL import Image
 import torch.utils.data
 from torchvision import datasets, transforms
 from utils import verify_str_arg
 from typing import Any, Callable, List, Optional, Union, Tuple
-from skimage.transform import rotate, rescale
+from skimage.transform import rotate, rescale, resize
 import random
 
 from retina_transform import foveat_img
 from oct2py import octave
 
 octave.addpath(octave.genpath('/private/home/mgahl/logsample'))
-#octave.eval('pkg load image')
 
 CSV = namedtuple('CSV', ['header', 'index', 'data'])
 
@@ -177,10 +177,11 @@ class CelebADataset(torch.utils.data.Dataset):
 
 
 class Collater:
-    def __init__(self, log_polar, crop_size, rotations):
+    def __init__(self, log_polar, crop_size, rotations, augmentation):
         self.log_polar = log_polar
         self.crop_size = crop_size
         self.rotations = rotations
+        self.augmentation = augmentation
 
     def __call__(self, samples):
         x, y = zip(*samples)
@@ -190,9 +191,12 @@ class Collater:
         out_x = []
         out_y = []
         for i in range(len(x)):
-            crops = self.randomcrop(x[i], 10)
-#            crops = transforms.functional.ten_crop(x[i], self.crop_size)
-#            crops = [x[i]]
+            if self.augmentation == 'random':
+                crops = self.randomcrop(x[i], 10)
+            elif self.augmentation == 'ten':
+                crops = transforms.functional.ten_crop(x[i], self.crop_size)
+            else:
+                crops = [x[i].resize((self.crop_size, self.crop_size))]
             for j in range(len(crops)):
                 for k in range(len(self.rotations)):
                     img = crops[j].rotate(int(self.rotations[k]))

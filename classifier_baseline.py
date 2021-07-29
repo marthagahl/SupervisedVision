@@ -16,7 +16,7 @@ from skimage.transform import rotate
 import pathlib
 from PIL import Image
 
-from dataset_baseline import Collater, CelebADataset
+from dataset import Collater, CelebADataset
 
 
 dataset_name = 'celeba'
@@ -25,6 +25,7 @@ num_classes = 2
 upright_rotations = [0]
 inverted_rotations = [180]
 num_crops = 10
+dataset_path = "/checkpoint/mgahl/shape_dataset_colors"
 
 def train(args, model, device, train_loader, optimizer, epoch):
     model.train()
@@ -132,47 +133,47 @@ def main():
 
 
     ### Data loaders
-    train_dataset = CelebADataset('/datasets01/CelebA/CelebA/072017/img_align_celeba', 'train', 'identity', ['>30'])
-    val_dataset_1 = CelebADataset('/datasets01/CelebA/CelebA/072017/img_align_celeba', 'valid', 'identity', ['>30'])
-    val_dataset_2 = CelebADataset('/datasets01/CelebA/CelebA/072017/img_align_celeba', 'valid', 'identity', ['>30'])
-    test_dataset_1 = CelebADataset('/datasets01/CelebA/CelebA/072017/img_align_celeba', 'test', 'identity', ['>30'])
-    test_dataset_2 = CelebADataset('/datasets01/CelebA/CelebA/072017/img_align_celeba', 'test', 'identity', ['>30'])
+#    train_dataset = CelebADataset('/datasets01/CelebA/CelebA/072017/img_align_celeba', 'train', 'identity', ['>30'])
+#    val_dataset_1 = CelebADataset('/datasets01/CelebA/CelebA/072017/img_align_celeba', 'valid', 'identity', ['>30'])
+#    val_dataset_2 = CelebADataset('/datasets01/CelebA/CelebA/072017/img_align_celeba', 'valid', 'identity', ['>30'])
+#    test_dataset_1 = CelebADataset('/datasets01/CelebA/CelebA/072017/img_align_celeba', 'test', 'identity', ['>30'])
+#    test_dataset_2 = CelebADataset('/datasets01/CelebA/CelebA/072017/img_align_celeba', 'test', 'identity', ['>30'])
 
-#    train_dataset = datasets.ImageFolder("/checkpoint/mgahl/shape_dataset/train/")
-#    val_dataset_1 = datasets.ImageFolder("/checkpoint/mgahl/shape_dataset/valid/")
-#    val_dataset_2 = datasets.ImageFolder("/checkpoint/mgahl/shape_dataset/valid/")
-#    test_dataset_1 = datasets.ImageFolder("/checkpoint/mgahl/shape_dataset/test/")
-#    test_dataset_2 = datasets.ImageFolder("/checkpoint/mgahl/shape_dataset/test/")
+    train_dataset = datasets.ImageFolder("{}/train/".format(dataset_path))
+    val_dataset_1 = datasets.ImageFolder("{}/valid/".format(dataset_path))
+    val_dataset_2 = datasets.ImageFolder("{}/valid/".format(dataset_path))
+    test_dataset_1 = datasets.ImageFolder("{}/test/".format(dataset_path))
+    test_dataset_2 = datasets.ImageFolder("{}/test/".format(dataset_path))
 
     train_loader = torch.utils.data.DataLoader(
             train_dataset, 
             batch_size = args.batch_size, 
             shuffle = True, 
-            collate_fn = Collater(args.log_polar, 150, upright_rotations), 
+            collate_fn = Collater(args.log_polar, 150, upright_rotations, augmentation = 'random'), 
             **kwargs)
     val_loader_1 = torch.utils.data.DataLoader(
             val_dataset_1, 
             batch_size = args.test_batch_size, 
             shuffle = True, 
-            collate_fn = Collater(args.log_polar, 150, upright_rotations), 
+            collate_fn = Collater(args.log_polar, 150, upright_rotations, augmentation = None), 
             **kwargs)
     val_loader_2 = torch.utils.data.DataLoader(
             val_dataset_2, 
             batch_size = args.test_batch_size, 
             shuffle = True, 
-            collate_fn = Collater(args.log_polar, 150, inverted_rotations), 
+            collate_fn = Collater(args.log_polar, 150, inverted_rotations, augmentation = None), 
             **kwargs)
     test_loader_1 = torch.utils.data.DataLoader(
             test_dataset_1, 
             batch_size = args.test_batch_size, 
             shuffle = True, 
-            collate_fn = Collater(args.log_polar, 150, upright_rotations), 
+            collate_fn = Collater(args.log_polar, 150, upright_rotations, augmentation = None), 
             **kwargs)
     test_loader_2 = torch.utils.data.DataLoader(
             test_dataset_2, 
             batch_size = args.test_batch_size, 
             shuffle = True, 
-            collate_fn = Collater(args.log_polar, 150, inverted_rotations), 
+            collate_fn = Collater(args.log_polar, 150, inverted_rotations, augmentation = None), 
             **kwargs)
 
 
@@ -187,12 +188,12 @@ def main():
             nn.Conv2d(3, 32, kernel_size = 7, stride = 2, padding = 3, bias = False ),
             nn.ReLU(),
             nn.MaxPool2d(kernel_size = 3, stride = 2, padding = 1),
-#            nn.Conv2d(32, 32, kernel_size = 3, stride = 1, bias = False),
-#            nn.ReLU(),
-#            nn.MaxPool2d(kernel_size = 3, stride = 2, padding = 1),
+            nn.Conv2d(32, 32, kernel_size = 3, stride = 1, bias = False),
+            nn.ReLU(),
+            nn.MaxPool2d(kernel_size = 3, stride = 2, padding = 1),
             Flatten(),
-            nn.Linear(46208, 40),
-#            nn.Linear(10368, 40),
+#            nn.Linear(46208, 40),
+            nn.Linear(10368, 40),
             nn.ReLU(),
             nn.Dropout(0.2),
             nn.Linear(40, num_classes),
@@ -223,9 +224,9 @@ def main():
         print("\nEvaluating on training set...")
         train_loss, train_acc = test(args, model, device, train_loader, num_crops, len(upright_rotations))
         print("\nEvaluating on upright validation set...")
-        val_upright_loss, val_upright_acc = test(args, model, device, val_loader_1, num_crops, len(upright_rotations))
+        val_upright_loss, val_upright_acc = test(args, model, device, val_loader_1, 1, len(upright_rotations))
         print("\nEvaluating on inverted validation set...")
-        val_inverted_loss, val_inverted_acc = test(args, model, device, val_loader_2, num_crops, len(inverted_rotations))
+        val_inverted_loss, val_inverted_acc = test(args, model, device, val_loader_2, 1, len(inverted_rotations))
 
 
         print(f'\nEpoch {epoch} Training Set Loss: {train_loss}')
@@ -283,9 +284,9 @@ def main():
 
 
     print("\nEvaluating on upright test set...")
-    test_upright_loss, test_upright_acc = test(args, model, device, test_loader_1, num_crops, len(upright_rotations))
+    test_upright_loss, test_upright_acc = test(args, model, device, test_loader_1, 1, len(upright_rotations))
     print("\nEvaluating on inverted test set...")
-    test_inverted_loss, test_inverted_acc = test(args, model, device, test_loader_2, num_crops, len(inverted_rotations))
+    test_inverted_loss, test_inverted_acc = test(args, model, device, test_loader_2, 1, len(inverted_rotations))
 
     print(f'\nUpright Test Set Loss: {test_upright_loss}')
     print(f'Upright Test Set Accuracy: {test_upright_acc}')
