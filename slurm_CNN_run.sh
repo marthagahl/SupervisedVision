@@ -22,7 +22,7 @@ module load cuda/10.1 cudnn/v7.6.5.32-cuda.10.1
 
 source activate pytorch_env
  
-python3 classifier_baseline.py
+python3 classifier_baseline.py --batch_size 24 --train_rotations 0
 
 
 

@@ -24,8 +24,52 @@ experiment_type = 'baseline'
 num_classes = 2
 upright_rotations = [0]
 inverted_rotations = [180]
-num_crops = 10
-dataset_path = "/checkpoint/mgahl/shape_dataset_colors"
+num_crops = 1
+dataset_path = "/checkpoint/mgahl/shape_dataset_color"
+
+
+class Flatten(nn.Module):
+    def forward(self,input):
+#        print (input.shape)
+        return input.view(input.size(0), -1)
+
+
+def smallArchitecture(**kwargs):
+
+    model = nn.Sequential(
+            nn.Conv2d(3, 8, kernel_size = 7, stride = 2, padding = 3, bias = False ),
+            nn.ReLU(),
+            nn.MaxPool2d(kernel_size = 3, stride = 2, padding = 1),
+            Flatten(),
+            nn.Linear(11552, 40),
+            nn.ReLU(),
+            nn.Dropout(0.2),
+            nn.Linear(40, num_classes),
+            )
+
+    return model
+
+
+
+def largeArchitecture(**kwargs):
+
+    model = nn.Sequential(
+            nn.Conv2d(3, 32, kernel_size = 7, stride = 2, padding = 3, bias = False ),
+            nn.ReLU(),
+            nn.MaxPool2d(kernel_size = 3, stride = 2, padding = 1),
+            nn.Conv2d(32, 32, kernel_size = 3, stride = 1, bias = False),
+            nn.ReLU(),
+            nn.MaxPool2d(kernel_size = 3, stride = 2, padding = 1),
+            Flatten(),
+#            nn.Linear(46208, 40),
+            nn.Linear(10368, 40),
+            nn.ReLU(),
+            nn.Dropout(0.2),
+            nn.Linear(40, num_classes),
+            )
+
+    return model
+
 
 def train(args, model, device, train_loader, optimizer, epoch):
     model.train()
@@ -93,12 +137,11 @@ def test(args, model, device, test_loader, num_crops, num_rotations):
 
 
 
-
 def main():
     parser = argparse.ArgumentParser(description = 'PyTorch Example')
-    parser.add_argument('--batch-size', type = int, default = 4, metavar = 'N',
+    parser.add_argument('--batch_size', type = int, default = 48, metavar = 'N',
             help = 'input batch size for training (default: 64)')
-    parser.add_argument('--test-batch-size', type = int, default = 4, metavar = 'N',
+    parser.add_argument('--test_batch_size', type = int, default = 48, metavar = 'N',
             help = 'input batch size for testing (default: 1000)')
     parser.add_argument('--epochs', type = int, default = 100, metavar = 'N',
             help = 'number of epochs to train (default: 10)')
@@ -116,6 +159,8 @@ def main():
             help = 'include log polar transformation in training')
     parser.add_argument('--salience', type = bool, default = False, metavar = 'SAL',
             help = 'use salience sampling to add augmentation')
+    parser.add_argument('--train_rotations', type = int, default = 0, nargs='*', metavar = 'R',
+            help = 'use salience sampling to add augmentation')
 
     args = parser.parse_args()
 
@@ -131,25 +176,27 @@ def main():
     outpath = '/checkpoint/mgahl/out/{}/{}'.format(dataset_name,experiment_type)
     os.makedirs(outpath, exist_ok = True)
 
+    print ("batch size:", args.batch_size)
+    print ("orientations:", type(args.train_rotations), len(args.train_rotations))
 
     ### Data loaders
-#    train_dataset = CelebADataset('/datasets01/CelebA/CelebA/072017/img_align_celeba', 'train', 'identity', ['>30'])
-#    val_dataset_1 = CelebADataset('/datasets01/CelebA/CelebA/072017/img_align_celeba', 'valid', 'identity', ['>30'])
-#    val_dataset_2 = CelebADataset('/datasets01/CelebA/CelebA/072017/img_align_celeba', 'valid', 'identity', ['>30'])
-#    test_dataset_1 = CelebADataset('/datasets01/CelebA/CelebA/072017/img_align_celeba', 'test', 'identity', ['>30'])
-#    test_dataset_2 = CelebADataset('/datasets01/CelebA/CelebA/072017/img_align_celeba', 'test', 'identity', ['>30'])
+    train_dataset = CelebADataset('/datasets01/CelebA/CelebA/072017/img_align_celeba', 'train', 'identity', ['>30'])
+    val_dataset_1 = CelebADataset('/datasets01/CelebA/CelebA/072017/img_align_celeba', 'valid', 'identity', ['>30'])
+    val_dataset_2 = CelebADataset('/datasets01/CelebA/CelebA/072017/img_align_celeba', 'valid', 'identity', ['>30'])
+    test_dataset_1 = CelebADataset('/datasets01/CelebA/CelebA/072017/img_align_celeba', 'test', 'identity', ['>30'])
+    test_dataset_2 = CelebADataset('/datasets01/CelebA/CelebA/072017/img_align_celeba', 'test', 'identity', ['>30'])
 
-    train_dataset = datasets.ImageFolder("{}/train/".format(dataset_path))
-    val_dataset_1 = datasets.ImageFolder("{}/valid/".format(dataset_path))
-    val_dataset_2 = datasets.ImageFolder("{}/valid/".format(dataset_path))
-    test_dataset_1 = datasets.ImageFolder("{}/test/".format(dataset_path))
-    test_dataset_2 = datasets.ImageFolder("{}/test/".format(dataset_path))
+#    train_dataset = datasets.ImageFolder("{}/train/".format(dataset_path))
+#    val_dataset_1 = datasets.ImageFolder("{}/valid/".format(dataset_path))
+#    val_dataset_2 = datasets.ImageFolder("{}/valid/".format(dataset_path))
+#    test_dataset_1 = datasets.ImageFolder("{}/test/".format(dataset_path))
+#    test_dataset_2 = datasets.ImageFolder("{}/test/".format(dataset_path))
 
     train_loader = torch.utils.data.DataLoader(
             train_dataset, 
             batch_size = args.batch_size, 
             shuffle = True, 
-            collate_fn = Collater(args.log_polar, 150, upright_rotations, augmentation = 'random'), 
+            collate_fn = Collater(args.log_polar, 150, args.train_rotations, augmentation = 'random'), 
             **kwargs)
     val_loader_1 = torch.utils.data.DataLoader(
             val_dataset_1, 
@@ -178,35 +225,16 @@ def main():
 
 
 
-    class Flatten(nn.Module):
-        def forward(self,input):
-#            print (input.shape)
-            return input.view(input.size(0), -1)
-
-
-    model = nn.Sequential(
-            nn.Conv2d(3, 32, kernel_size = 7, stride = 2, padding = 3, bias = False ),
-            nn.ReLU(),
-            nn.MaxPool2d(kernel_size = 3, stride = 2, padding = 1),
-            nn.Conv2d(32, 32, kernel_size = 3, stride = 1, bias = False),
-            nn.ReLU(),
-            nn.MaxPool2d(kernel_size = 3, stride = 2, padding = 1),
-            Flatten(),
-#            nn.Linear(46208, 40),
-            nn.Linear(10368, 40),
-            nn.ReLU(),
-            nn.Dropout(0.2),
-            nn.Linear(40, num_classes),
-            )
-
-
+    model = smallArchitecture()
     model = nn.DataParallel(model).cuda()
+
 
     def get_optimizer(initial_lr, epoch):
         ratio = 0.1  # set 1/10 as the ratio ??? 
         lr = initial_lr * math.pow(ratio, epoch/40)
         print ("The current Learning Rate is {}.".format(lr))
         return optim.Adam(list(model.parameters()), lr = lr, weight_decay = 1e-3)
+
 
     train_losses = []
     train_accs = []
@@ -222,7 +250,7 @@ def main():
         train(args, model, device, train_loader, optimizer, epoch)
         
         print("\nEvaluating on training set...")
-        train_loss, train_acc = test(args, model, device, train_loader, num_crops, len(upright_rotations))
+        train_loss, train_acc = test(args, model, device, train_loader, num_crops, len(args.train_rotations))
         print("\nEvaluating on upright validation set...")
         val_upright_loss, val_upright_acc = test(args, model, device, val_loader_1, 1, len(upright_rotations))
         print("\nEvaluating on inverted validation set...")

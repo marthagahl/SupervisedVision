@@ -192,7 +192,7 @@ class Collater:
         out_y = []
         for i in range(len(x)):
             if self.augmentation == 'random':
-                crops = self.randomcrop(x[i], 10)
+                crops = self.randomcrop(x[i], 1)
             elif self.augmentation == 'ten':
                 crops = transforms.functional.ten_crop(x[i], self.crop_size)
             else:
@@ -212,7 +212,8 @@ class Collater:
                     img = torch.from_numpy(img)
                     img = norm(img)
                     out_x.append(img)
-                    out_y.append(torch.tensor(y[i]))
+                    out_y.append(y[i])
+#                    out_y.append(torch.tensor(y[i]))
 
         return torch.stack(out_x), torch.stack(out_y)
 
