@@ -25,7 +25,8 @@ num_classes = 2
 upright_rotations = [0]
 inverted_rotations = [180]
 num_crops = 1
-dataset_path = "/checkpoint/mgahl/shape_dataset_color"
+dataset_path = "/checkpoint/mgahl/two_identities"
+outpath = '/checkpoint/mgahl/out/{}/{}'.format(dataset_name,experiment_type)
 
 
 class Flatten(nn.Module):
@@ -173,30 +174,35 @@ def main():
     kwargs = {'num_workers': 6, 'pin_memory': True} if use_cuda else {}
 
 
-    outpath = '/checkpoint/mgahl/out/{}/{}'.format(dataset_name,experiment_type)
     os.makedirs(outpath, exist_ok = True)
 
     print ("batch size:", args.batch_size)
     print ("orientations:", type(args.train_rotations), len(args.train_rotations))
 
     ### Data loaders
-    train_dataset = CelebADataset('/datasets01/CelebA/CelebA/072017/img_align_celeba', 'train', 'identity', ['>30'])
-    val_dataset_1 = CelebADataset('/datasets01/CelebA/CelebA/072017/img_align_celeba', 'valid', 'identity', ['>30'])
-    val_dataset_2 = CelebADataset('/datasets01/CelebA/CelebA/072017/img_align_celeba', 'valid', 'identity', ['>30'])
-    test_dataset_1 = CelebADataset('/datasets01/CelebA/CelebA/072017/img_align_celeba', 'test', 'identity', ['>30'])
-    test_dataset_2 = CelebADataset('/datasets01/CelebA/CelebA/072017/img_align_celeba', 'test', 'identity', ['>30'])
+#    train_dataset = CelebADataset('/datasets01/CelebA/CelebA/072017/img_align_celeba', 'train', 'identity', ['>30'])
+#    val_dataset_1 = CelebADataset('/datasets01/CelebA/CelebA/072017/img_align_celeba', 'valid', 'identity', ['>30'])
+#    val_dataset_2 = CelebADataset('/datasets01/CelebA/CelebA/072017/img_align_celeba', 'valid', 'identity', ['>30'])
+#    test_dataset_1 = CelebADataset('/datasets01/CelebA/CelebA/072017/img_align_celeba', 'test', 'identity', ['>30'])
+#    test_dataset_2 = CelebADataset('/datasets01/CelebA/CelebA/072017/img_align_celeba', 'test', 'identity', ['>30'])
 
-#    train_dataset = datasets.ImageFolder("{}/train/".format(dataset_path))
-#    val_dataset_1 = datasets.ImageFolder("{}/valid/".format(dataset_path))
-#    val_dataset_2 = datasets.ImageFolder("{}/valid/".format(dataset_path))
-#    test_dataset_1 = datasets.ImageFolder("{}/test/".format(dataset_path))
-#    test_dataset_2 = datasets.ImageFolder("{}/test/".format(dataset_path))
+    train_dataset = datasets.ImageFolder("{}/train/".format(dataset_path))
+    val_dataset_1 = datasets.ImageFolder("{}/valid/".format(dataset_path))
+    val_dataset_2 = datasets.ImageFolder("{}/valid/".format(dataset_path))
+    test_dataset_1 = datasets.ImageFolder("{}/test/".format(dataset_path))
+    test_dataset_2 = datasets.ImageFolder("{}/test/".format(dataset_path))
 
     train_loader = torch.utils.data.DataLoader(
             train_dataset, 
             batch_size = args.batch_size, 
             shuffle = True, 
             collate_fn = Collater(args.log_polar, 150, args.train_rotations, augmentation = 'random'), 
+            **kwargs)
+    train_loader_acc = torch.utils.data.DataLoader(
+            train_dataset, 
+            batch_size = args.batch_size, 
+            shuffle = True, 
+            collate_fn = Collater(args.log_polar, 150, upright_rotations, augmentation = None), 
             **kwargs)
     val_loader_1 = torch.utils.data.DataLoader(
             val_dataset_1, 
@@ -223,8 +229,6 @@ def main():
             collate_fn = Collater(args.log_polar, 150, inverted_rotations, augmentation = None), 
             **kwargs)
 
-
-
     model = smallArchitecture()
     model = nn.DataParallel(model).cuda()
 
@@ -250,7 +254,8 @@ def main():
         train(args, model, device, train_loader, optimizer, epoch)
         
         print("\nEvaluating on training set...")
-        train_loss, train_acc = test(args, model, device, train_loader, num_crops, len(args.train_rotations))
+        train_loss, train_acc = test(args, model, device, train_loader_acc, 1, len(upright_rotations))
+#        train_loss, train_acc = test(args, model, device, train_loader, num_crops, len(args.train_rotations))
         print("\nEvaluating on upright validation set...")
         val_upright_loss, val_upright_acc = test(args, model, device, val_loader_1, 1, len(upright_rotations))
         print("\nEvaluating on inverted validation set...")

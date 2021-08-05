@@ -212,8 +212,8 @@ class Collater:
                     img = torch.from_numpy(img)
                     img = norm(img)
                     out_x.append(img)
-                    out_y.append(y[i])
-#                    out_y.append(torch.tensor(y[i]))
+#                    out_y.append(y[i])
+                    out_y.append(torch.tensor(y[i]))
 
         return torch.stack(out_x), torch.stack(out_y)
 
