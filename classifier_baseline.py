@@ -12,6 +12,8 @@ import glob
 import json
 import torchvision.transforms.functional as TF
 from skimage.transform import rotate
+import tarfile
+import sys
 
 import pathlib
 from PIL import Image
@@ -25,8 +27,15 @@ num_classes = 2
 upright_rotations = [0]
 inverted_rotations = [180]
 num_crops = 1
-dataset_path = "/checkpoint/mgahl/two_identities"
-outpath = '/checkpoint/mgahl/out/{}/{}'.format(dataset_name,experiment_type)
+#dataset_path = "/checkpoint/mgahl/two_identities"
+#outpath = '/checkpoint/mgahl/out/{}/{}'.format(dataset_name,experiment_type)
+
+tar = tarfile.open("images/two_identities.tar.gz")
+tar.extractall("images/")
+tar.close
+
+dataset_path = "./images/two_identities"
+outpath = "./out/{}/{}".format(dataset_name, experiment_type)
 
 
 class Flatten(nn.Module):
