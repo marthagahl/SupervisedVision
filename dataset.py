@@ -16,10 +16,54 @@ import random
 
 from retina_transform import foveat_img
 from oct2py import octave
+from log_polar_pytorch import LogPolar
 
-octave.addpath(octave.genpath('/private/home/mgahl/logsample'))
 
 CSV = namedtuple('CSV', ['header', 'index', 'data'])
+
+
+class TransformedData(datasets.ImageFolder):
+    def __init__(self, data_path, crop_size, max_rotation, lp, augmentation, inversion):
+        super(TransformedData, self).__init__(data_path)
+
+        self.data_path = data_path
+
+        if augmentation == 'random':
+            crops = transforms.RandomCrop(crop_size)
+        else:
+            crops = transforms.Resize(crop_size)
+
+        if inversion:
+            rotation = transforms.RandomRotation(max_rotation)
+        else:
+            rotation = transforms.RandomRotation((180,180))
+
+        if lp:
+            trans = transforms.Compose([
+                crops,
+                rotation,
+                LogPolar(output_shape = (190,165), scaling = 'log'),
+                transforms.ToTensor(),
+                transforms.Normalize( mean = (0.485, 0.456, 0.406), std = (0.229, 0.224, 0.225) ),
+                ])
+        else:
+            trans = transforms.Compose([
+                crops,
+                rotation,
+                transforms.ToTensor(),
+                transforms.Normalize( mean = (0.485, 0.456, 0.406), std = (0.229, 0.224, 0.225) ),
+                ])
+        self.trans = trans
+
+
+    def __getitem__(self, index, test = False):
+        path, target = self.samples[index]
+        image = self.loader(path)
+        transformed_X = self.trans(image)
+
+        return transformed_X, target
+
+
 
 
 class CelebADataset(torch.utils.data.Dataset):
@@ -174,67 +218,5 @@ class CelebADataset(torch.utils.data.Dataset):
         lines = ['Target type: {target_type}', 'Split: {split}']
         return '\n'.join(lines).format(**self.__dict__)
 
-
-
-class Collater:
-    def __init__(self, log_polar, crop_size, rotations, augmentation):
-        self.log_polar = log_polar
-        self.crop_size = crop_size
-        self.rotations = rotations
-        self.augmentation = augmentation
-
-    def __call__(self, samples):
-        x, y = zip(*samples)
-        norm = transforms.Normalize( mean = (0.485, 0.456, 0.406), std = (0.229, 0.224, 0.225) )
-
-
-        out_x = []
-        out_y = []
-        for i in range(len(x)):
-            if self.augmentation == 'random':
-                crops = self.randomcrop(x[i], 1)
-            elif self.augmentation == 'ten':
-                crops = transforms.functional.ten_crop(x[i], self.crop_size)
-            else:
-                crops = [x[i].resize((self.crop_size, self.crop_size))]
-            for j in range(len(crops)):
-                for k in range(len(self.rotations)):
-                    img = crops[j].rotate(int(self.rotations[k]))
-                    img = np.asarray(img, dtype=np.float64)
-
-                    if self.log_polar:
-                        img = foveat_img(img, [(img.shape[1] / 2, img.shape[0] / 2)])
-                        img = self.logpolar(img, tuple((img.shape[1] / 2, img.shape[0] / 2)))
-                        img = Image.fromarray(img)
-
-                    img = np.transpose(img, (2,1,0))
-
-                    img = torch.from_numpy(img)
-                    img = norm(img)
-                    out_x.append(img)
-#                    out_y.append(y[i])
-                    out_y.append(torch.tensor(y[i]))
-
-        return torch.stack(out_x), torch.stack(out_y)
-
-    def randomcrop(self, image1, num_crops):
-        width, height = image1.size
-
-        crops = []
-
-        for _ in range(num_crops):
-            i = random.randint(0, height - self.crop_size)
-            j = random.randint(0, width - self.crop_size)
-
-            cropped_im = transforms.functional.crop(image1, i, j, self.crop_size, self.crop_size)
-            crops.append(cropped_im)
-
-        return crops
-
-    def logpolar(self, image1, center):
-        log_list = octave.logsample(image1, 5.0, center[0], center[0], center[1], self.out_width, self.out_height)
-        octave_logpolar = img_as_ubyte(log_list.astype('B'))
-
-        return np.concatenate((octave_logpolar[100:, :, :], octave_logpolar[:100, :, :]), axis=0)
 
 
