@@ -1003,7 +1003,6 @@ class LogPolar(object):
         Returns:
             PIL Image: Cropped image.
         """
-        
 
         return Image.fromarray(np.uint8(255.0*warp_polar(np.asarray(img),center= self.center,radius=self.radius,output_shape=self.output_shape,scaling=self.scaling, multichannel=True)))
 

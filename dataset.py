@@ -17,49 +17,87 @@ import random
 from retina_transform import foveat_img
 from oct2py import octave
 from log_polar_pytorch import LogPolar
+#from salience_pytorch import SalienceSampling
 
 
 CSV = namedtuple('CSV', ['header', 'index', 'data'])
 
 
 class TransformedData(datasets.ImageFolder):
-    def __init__(self, data_path, crop_size, max_rotation, lp, augmentation, inversion):
+    def __init__(self, data_path, crop_size, max_rotation, lp, lp_out_shape, salience, sal_points, augmentation, inversion):
         super(TransformedData, self).__init__(data_path)
 
-        self.data_path = data_path
-
-        if augmentation == 'random':
-            crops = transforms.RandomCrop(crop_size)
-        else:
-            crops = transforms.Resize(crop_size)
+        self.augmentation = augmentation
+        self.sal_points = sal_points
+        self.crop_size = crop_size
 
         if inversion:
             rotation = transforms.RandomRotation(max_rotation)
         else:
             rotation = transforms.RandomRotation((180,180))
 
-        if lp:
-            trans = transforms.Compose([
-                crops,
-                rotation,
-                LogPolar(output_shape = (190,165), scaling = 'log'),
-                transforms.ToTensor(),
-                transforms.Normalize( mean = (0.485, 0.456, 0.406), std = (0.229, 0.224, 0.225) ),
-                ])
+
+        if augmentation == 'salience':
+#            trans = []
+#
+#            crops = SalienceSampling(sal_points, crop_size)
+            if lp:
+                trans = transforms.Compose([
+                    rotation,
+                    LogPolar(output_shape = lp_out_shape, scaling = 'log'),
+                    transforms.ToTensor(),
+                    transforms.Normalize( mean = (0.485, 0.456, 0.406), std = (0.229, 0.224, 0.225) ),
+                    ])
+            else:
+                trans = transforms.Compose([
+                    rotation,
+                    transforms.ToTensor(),
+                    transforms.Normalize( mean = (0.485, 0.456, 0.406), std = (0.229, 0.224, 0.225) ),
+                    ])
+
+
         else:
-            trans = transforms.Compose([
-                crops,
-                rotation,
-                transforms.ToTensor(),
-                transforms.Normalize( mean = (0.485, 0.456, 0.406), std = (0.229, 0.224, 0.225) ),
-                ])
+            if augmentation == 'random':
+                crops = transforms.RandomCrop(crop_size)
+            else:
+                crops = transforms.Resize(crop_size)
+
+            if lp:
+                trans = transforms.Compose([
+                    crops,
+                    rotation,
+                    LogPolar(output_shape = lp_out_shape, scaling = 'log'),
+                    transforms.ToTensor(),
+                    transforms.Normalize( mean = (0.485, 0.456, 0.406), std = (0.229, 0.224, 0.225) ),
+                    ])
+            else:
+                trans = transforms.Compose([
+                    crops,
+                    rotation,
+                    transforms.ToTensor(),
+                    transforms.Normalize( mean = (0.485, 0.456, 0.406), std = (0.229, 0.224, 0.225) ),
+                    ])
         self.trans = trans
 
 
     def __getitem__(self, index, test = False):
         path, target = self.samples[index]
+#        print (path)
         image = self.loader(path)
-        transformed_X = self.trans(image)
+        
+        if self.augmentation == 'salience':
+            complete_trans = []
+            crops = SalienceSampling(path, self.sal_points, self.crop_size)
+            complete_trans.extend([transforms.Compose([
+                crops,
+                self.trans])] * self.sal_points)
+
+            transformed_X = list(map(lambda trans: trans(image), complete_trans))
+
+        else:
+            complete_trans = self.trans
+
+            transformed_X = complete_trans(image)
 
         return transformed_X, target
 
