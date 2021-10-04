@@ -15,7 +15,7 @@ from skimage.transform import rotate, rescale, resize
 import random
 
 from retina_transform import foveat_img
-from oct2py import octave
+#from oct2py import octave
 from log_polar_pytorch import LogPolar
 #from salience_pytorch import SalienceSampling
 
@@ -32,9 +32,9 @@ class TransformedData(datasets.ImageFolder):
         self.crop_size = crop_size
 
         if inversion:
-            rotation = transforms.RandomRotation(max_rotation)
-        else:
             rotation = transforms.RandomRotation((180,180))
+        else:
+            rotation = transforms.RandomRotation(max_rotation)
 
 
         if augmentation == 'salience':
