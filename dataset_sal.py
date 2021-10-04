@@ -32,9 +32,9 @@ class TransformedData(datasets.ImageFolder):
         self.crop_size = crop_size
 
         if inversion:
-            rotation = transforms.RandomRotation(max_rotation)
-        else:
             rotation = transforms.RandomRotation((180,180))
+        else:
+            rotation = transforms.RandomRotation(max_rotation)
 
 
         if augmentation == 'salience':
