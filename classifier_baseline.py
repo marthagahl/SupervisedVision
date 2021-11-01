@@ -75,7 +75,8 @@ def train(args, model, device, train_loader, optimizer, epoch):
     model.train()
     losses = []
     for batch_idx, (data, target) in enumerate(train_loader):
-        data = data.type(torch.cuda.FloatTensor)
+#        data = data.type(torch.cuda.FloatTensor)
+        data = data.type(torch.FloatTensor)
         data, target = data.to(device), target.to(device)
         optimizer.zero_grad()
         output = model(data)
@@ -107,7 +108,8 @@ def test(args, model, device, test_loader, num_classes):
 
     with torch.no_grad():
         for data, target in test_loader:
-            data = data.type(torch.cuda.FloatTensor)
+#            data = data.type(torch.cuda.FloatTensor)
+            data = data.type(torch.FloatTensor)
             data, target = data.to(device), target.to(device)
             output = model(data)
             cer = nn.CrossEntropyLoss()
@@ -149,7 +151,7 @@ def main():
             help = 'learning rate (default: 0.01)')
     parser.add_argument('--momentum', type = float, default = 0.9, metavar = 'M',
             help = 'SGD momentum (default: 0.5)')
-    parser.add_argument('--no-cuda', action = 'store_true', default = False,
+    parser.add_argument('--no_cuda', action = 'store_true', default = True,
             help = 'disables CUDA training')
     parser.add_argument('--seed', type = int, default = 1, metavar = 'S',
             help = 'random seed (default: 1)')
@@ -193,7 +195,8 @@ def main():
     kwargs = {'num_workers': args.workers, 'pin_memory': True} if use_cuda else {}
 
 
-    outpath = '/checkpoint/mgahl/out/{}/{}'.format(args.out_directory, args.experiment_name)
+#    outpath = '/checkpoint/mgahl/out/{}/{}'.format(args.out_directory, args.experiment_name)
+    outpath = '/Users/marthagahl/Documents/Research-Gary/out_test/{}/{}'.format(args.out_directory, args.experiment_name)
     os.makedirs(outpath, exist_ok = True)
 
     num_classes = args.classes
@@ -250,7 +253,8 @@ def main():
 
 
     model = largeArchitecture(num_classes, out_shape)
-    model = nn.DataParallel(model).cuda()
+#    model = nn.DataParallel(model).cuda()
+    model = nn.DataParallel(model)
 
 
     train_losses = []
