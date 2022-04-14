@@ -14,9 +14,14 @@ from typing import Any, Callable, List, Optional, Union, Tuple
 from skimage.transform import rotate, rescale, resize
 import random
 
-from retina_transform import foveat_img
+import sys
+sys.path.append('./transformations')
+
+#from retina_transform import foveat_img
 #from oct2py import octave
+from transformations import Foveate
 from log_polar_pytorch import LogPolar
+#from foveation_pytorch import Foveate
 #from salience_pytorch import SalienceSampling
 
 
@@ -24,26 +29,33 @@ CSV = namedtuple('CSV', ['header', 'index', 'data'])
 
 
 class TransformedData(datasets.ImageFolder):
-    def __init__(self, data_path, crop_size, max_rotation, lp, lp_out_shape, salience, sal_points, augmentation, inversion):
+    def __init__(self, data_path, salience_path, crop_size, max_rotation, lp, lp_out_shape, augmentation, points, inversion):
         super(TransformedData, self).__init__(data_path)
 
         self.augmentation = augmentation
-        self.sal_points = sal_points
+        self.points = points
         self.crop_size = crop_size
 
         if inversion:
             rotation = transforms.RandomRotation((180,180))
+#            rotation = transforms.RandomRotation(((-45, -15),(15, 45)))
+            scale = transforms.Resize((224,224))
+            pad = transforms.Pad(0)
         else:
             rotation = transforms.RandomRotation(max_rotation)
+            scale = transforms.Resize((180,180))
+            pad = transforms.Pad(22)
+            
 
 
         if augmentation == 'salience':
 #            trans = []
 #
-#            crops = SalienceSampling(sal_points, crop_size)
+#            crops = SalienceSampling(points, crop_size)
             if lp:
                 trans = transforms.Compose([
                     rotation,
+                    Foveate(self.crop_size),
                     LogPolar(output_shape = lp_out_shape, scaling = 'log'),
                     transforms.ToTensor(),
                     transforms.Normalize( mean = (0.485, 0.456, 0.406), std = (0.229, 0.224, 0.225) ),
@@ -51,6 +63,7 @@ class TransformedData(datasets.ImageFolder):
             else:
                 trans = transforms.Compose([
                     rotation,
+                    Foveate(self.crop_size),
                     transforms.ToTensor(),
                     transforms.Normalize( mean = (0.485, 0.456, 0.406), std = (0.229, 0.224, 0.225) ),
                     ])
@@ -66,6 +79,9 @@ class TransformedData(datasets.ImageFolder):
                 trans = transforms.Compose([
                     crops,
                     rotation,
+#                    scale,
+#                    pad,
+                    Foveate(self.crop_size),
                     LogPolar(output_shape = lp_out_shape, scaling = 'log'),
                     transforms.ToTensor(),
                     transforms.Normalize( mean = (0.485, 0.456, 0.406), std = (0.229, 0.224, 0.225) ),
@@ -74,6 +90,9 @@ class TransformedData(datasets.ImageFolder):
                 trans = transforms.Compose([
                     crops,
                     rotation,
+#                    scale,
+#                    pad,
+                    Foveate(self.crop_size),
                     transforms.ToTensor(),
                     transforms.Normalize( mean = (0.485, 0.456, 0.406), std = (0.229, 0.224, 0.225) ),
                     ])
@@ -87,10 +106,10 @@ class TransformedData(datasets.ImageFolder):
         
         if self.augmentation == 'salience':
             complete_trans = []
-            crops = SalienceSampling(path, self.sal_points, self.crop_size)
+            crops = SalienceSampling(path, self.points, self.crop_size)
             complete_trans.extend([transforms.Compose([
                 crops,
-                self.trans])] * self.sal_points)
+                self.trans])] * self.points)
 
             transformed_X = list(map(lambda trans: trans(image), complete_trans))
 
